@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Camera gắn nhãn pha</title>
+<style>
+  :root{
+    --A:#f5c400; --B:#1f9d4c; --C:#d7261e;
+    --bg:#0c0e11; --panel:#16191e; --line:#2a2f37; --fg:#f2f4f7; --muted:#9aa3ad;
+    --cur:var(--A);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+  /* Khung ngắm */
+  .view{position:relative;flex:1;min-height:0;background:#000;overflow:hidden}
+  video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+  body.live video{display:block}
+  .badge{position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:6px;z-index:2;pointer-events:none}
+  .pill{align-self:flex-start;background:var(--cur);color:#fff;font-weight:800;font-size:30px;letter-spacing:.5px;
+    padding:6px 16px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+  body[data-phase="A"] .pill{color:#111}
+  .clock{align-self:flex-start;background:rgba(0,0,0,.55);font-weight:600;font-size:15px;padding:4px 10px;border-radius:8px;
+    font-variant-numeric:tabular-nums}
+  .native-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;text-align:center;padding:24px;color:var(--muted);font-size:15px;line-height:1.45}
+  body.live .native-hint{display:none}
+  .big-letter{font-size:150px;font-weight:900;line-height:1;color:var(--cur)}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+  .flash.on{opacity:.8;transition:none}
+
+  /* Điều khiển */
+  .controls{background:var(--panel);border-top:1px solid var(--line);padding:14px 16px 16px;display:flex;flex-direction:column;gap:14px}
+  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .ph{height:58px;border-radius:12px;font-size:24px;font-weight:800;border:2px solid var(--c);color:var(--c);background:transparent}
+  .ph[data-p="A"]{--c:var(--A)} .ph[data-p="B"]{--c:var(--B)} .ph[data-p="C"]{--c:var(--C)}
+  .ph.sel{background:var(--c);color:#fff}
+  .ph[data-p="A"].sel{color:#111}
+  .row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+  .shutter{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:var(--cur);
+    box-shadow:0 0 0 3px rgba(255,255,255,.12);justify-self:center}
+  .shutter:active{transform:scale(.94)}
+  .thumb{justify-self:start;width:52px;height:52px;border-radius:10px;border:2px solid var(--line);background:#000 center/cover no-repeat;
+    position:relative;font-size:12px;color:var(--muted)}
+  .thumb .n{position:absolute;right:-6px;top:-6px;background:var(--fg);color:#111;font-weight:700;border-radius:10px;
+    min-width:20px;height:20px;line-height:20px;font-size:12px;padding:0 5px}
+  .thumb.empty .n{display:none}
+  .auto{justify-self:end;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);user-select:none}
+  .auto input{width:20px;height:20px;accent-color:var(--fg)}
+
+  /* Bảng xem ảnh */
+  .sheet{position:fixed;inset:0;background:#000;display:none;flex-direction:column;z-index:10;
+    padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 14px)}
+  .sheet.open{display:flex}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .sheet-head h2{margin:0;font-size:17px}
+  .x{font-size:26px;line-height:1;width:40px;height:40px;border-radius:50%;background:#222}
+  .preview{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .preview img{max-width:100%;max-height:100%;border-radius:8px;object-fit:contain;-webkit-touch-callout:default}
+  .fname{font-size:13px;color:var(--muted);text-align:center;margin:10px 0 4px;word-break:break-all}
+  .tip{font-size:12px;color:var(--muted);text-align:center;margin:0 0 10px}
+  .btns{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+  .btn{height:52px;border-radius:12px;font-weight:700;font-size:16px;background:#262a31}
+  .btn.primary{background:var(--fg);color:#111}
+  .list{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-content:start}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+  .item .meta{font-size:12px;padding:6px 8px;color:var(--muted);word-break:break-all}
+  .item button{margin:0 8px 8px;height:36px;border-radius:8px;background:#262a31;font-size:14px;font-weight:600}
+  .item.saved button{opacity:.6}
+  .empty-list{color:var(--muted);text-align:center;padding:40px 10px}
+
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 190px);transform:translateX(-50%);
+    background:var(--fg);color:#111;font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;
+    opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body data-phase="A">
+
+<div class="view" id="view">
+  <video id="video" playsinline muted autoplay></video>
+  <div class="badge"><div class="pill" id="pill">PHA A</div><div class="clock" id="clock">--</div></div>
+  <div class="native-hint" id="hint">
+    <div class="big-letter" id="bigLetter">A</div>
+    <div>Chọn pha bên dưới, rồi bấm nút tròn để mở camera.<br>Nhãn pha và ngày giờ sẽ được in lên ảnh ngay sau khi chụp.</div>
+  </div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<div class="controls">
+  <div class="phases">
+    <button class="ph sel" data-p="A">A</button>
+    <button class="ph" data-p="B">B</button>
+    <button class="ph" data-p="C">C</button>
+  </div>
+  <div class="row">
+    <button class="thumb empty" id="thumbBtn" aria-label="Ảnh đã chụp"><span class="n" id="count">0</span></button>
+    <button class="shutter" id="shutter" aria-label="Chụp"></button>
+    <label class="auto"><input type="checkbox" id="auto" checked>Tự chuyển<br>A→B→C</label>
+  </div>
+</div>
+
+<input type="file" id="file" accept="image/*" capture="environment" hidden>
+
+<!-- Xem ảnh vừa chụp -->
+<div class="sheet" id="shotSheet">
+  <div class="sheet-head"><h2 id="shotTitle">Ảnh vừa chụp</h2><button class="x" id="shotClose" aria-label="Đóng">×</button></div>
+  <div class="preview"><img id="shotImg" alt="Ảnh đã gắn nhãn"></div>
+  <div class="fname" id="shotName"></div>
+  <p class="tip">Nếu nút Lưu không hoạt động: nhấn giữ vào ảnh để lưu.</p>
+  <div class="btns">
+    <button class="btn" id="retake">Chụp lại</button>
+    <button class="btn primary" id="saveBtn">Lưu ảnh</button>
+  </div>
+</div>
+
+<!-- Danh sách ảnh trong phiên -->
+<div class="sheet" id="listSheet">
+  <div class="sheet-head"><h2>Ảnh trong phiên này</h2><button class="x" id="listClose" aria-label="Đóng">×</button></div>
+  <div class="list" id="list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const COLORS = { A: '#f5c400', B: '#1f9d4c', C: '#d7261e' };
+  const TEXT_ON = { A: '#111111', B: '#ffffff', C: '#ffffff' };
+  const ORDER = ['A', 'B', 'C'];
+  const FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  const MAX_SIDE = 4096;
+
+  const $ = id => document.getElementById(id);
+  const video = $('video'), fileInput = $('file');
+  let phase = 'A', live = false, stream = null, current = null, downloads = null;
+  const shots = [];
+
+  // Khả năng tải file khi trang chạy trong Claude (nếu có)
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+    }
+  } catch (e) {}
+
+  const pad = n => String(n).padStart(2, '0');
+  const fmtStamp = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}  ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const fmtFile = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 1800);
+  }
+
+  function setPhase(p) {
+    phase = p;
+    document.body.dataset.phase = p;
+    document.documentElement.style.setProperty('--cur', COLORS[p]);
+    $('pill').textContent = 'PHA ' + p;
+    $('bigLetter').textContent = p;
+    document.querySelectorAll('.ph').forEach(b => b.classList.toggle('sel', b.dataset.p === p));
+  }
+  function nextPhase() {
+    if (!$('auto').checked) return;
+    setPhase(ORDER[(ORDER.indexOf(phase) + 1) % 3]);
+  }
+
+  document.querySelectorAll('.ph').forEach(b => b.addEventListener('click', () => setPhase(b.dataset.p)));
+
+  setInterval(() => { $('clock').textContent = fmtStamp(new Date()); }, 1000);
+  $('clock').textContent = fmtStamp(new Date());
+
+  // ---- Camera trực tiếp (nếu trình duyệt cho phép) ----
+  async function startLive() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      live = true;
+      document.body.classList.add('live');
+      return true;
+    } catch (e) {
+      live = false;
+      document.body.classList.remove('live');
+      return false;
+    }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && live) {
+      const tr = stream && stream.getVideoTracks()[0];
+      if (!tr || tr.readyState === 'ended') startLive();
+    }
+  });
+
+  // ---- In nhãn lên ảnh ----
+  function rr(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+
+  function stamp(src, sw, sh, p, date) {
+    const k = Math.min(1, MAX_SIDE / Math.max(sw, sh));
+    const w = Math.round(sw * k), h = Math.round(sh * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.drawImage(src, 0, 0, w, h);
+
+    const u = Math.max(16, Math.round(Math.min(w, h) * 0.05));
+    const padd = Math.round(u * 0.55), m = Math.round(u * 0.7);
+    const t1 = 'PHA ' + p, t2 = fmtStamp(date);
+    const f1 = `800 ${Math.round(u * 1.6)}px ${FONT}`, f2 = `600 ${u}px ${FONT}`;
+    g.font = f1; const w1 = g.measureText(t1).width;
+    g.font = f2; const w2 = g.measureText(t2).width;
+    const pillW = w1 + padd * 2, pillH = Math.round(u * 2.1), lineH = Math.round(u * 1.4);
+    const boxW = Math.max(pillW, w2) + padd * 2;
+    const boxH = padd + pillH + Math.round(padd * 0.5) + lineH + Math.round(padd * 0.5);
+    const x = m, y = h - m - boxH;
+
+    g.fillStyle = 'rgba(0,0,0,0.62)'; rr(g, x, y, boxW, boxH, u * 0.35); g.fill();
+    g.fillStyle = COLORS[p]; rr(g, x + padd, y + padd, pillW, pillH, u * 0.3); g.fill();
+    g.textBaseline = 'middle'; g.textAlign = 'left';
+    g.font = f1; g.fillStyle = TEXT_ON[p];
+    g.fillText(t1, x + padd * 2, y + padd + pillH / 2 + u * 0.05);
+    g.font = f2; g.fillStyle = '#ffffff';
+    g.fillText(t2, x + padd, y + padd + pillH + Math.round(padd * 0.5) + lineH / 2);
+
+    return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.92));
+  }
+
+  async function makeShot(src, sw, sh, date) {
+    const p = phase;
+    const blob = await stamp(src, sw, sh, p, date);
+    if (!blob) { toast('Không tạo được ảnh, thử lại'); return; }
+    const shot = { phase: p, date, blob, url: URL.createObjectURL(blob), name: `Pha${p}_${fmtFile(date)}.jpg`, saved: false };
+    shots.push(shot);
+    refreshThumb();
+    openShot(shot);
+  }
+
+  // ---- Chụp ----
+  $('shutter').addEventListener('click', async () => {
+    if (live && video.videoWidth) {
+      const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+      await makeShot(video, video.videoWidth, video.videoHeight, new Date());
+    } else {
+      fileInput.value = '';
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const date = new Date(file.lastModified || Date.now());
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch (e) { URL.revokeObjectURL(url); toast('Không đọc được ảnh'); return; }
+    await makeShot(img, img.naturalWidth, img.naturalHeight, date);
+    URL.revokeObjectURL(url);
+  });
+
+  // ---- Lưu ảnh ----
+  async function saveShot(shot) {
+    if (downloads) {
+      try { await downloads.save({ filename: shot.name, data: shot.blob }); return true; }
+      catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') return false;
+        if (code === 'rate_limited') { toast('Đang có hộp thoại lưu, đợi chút rồi thử lại'); return false; }
+        if (!['unavailable', 'not_granted', 'capability_disabled', 'capability_removed'].includes(code)) {
+          toast('Không lưu được: ' + ((e && e.message) || code)); return false;
+        }
+        downloads = null;
+      }
+    }
+    if (isIOS && navigator.canShare) {
+      const f = new File([shot.blob], shot.name, { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [f] })) {
+        try { await navigator.share({ files: [f] }); return true; }
+        catch (e) { if (e && e.name === 'AbortError') return false; }
+      }
+    }
+    const a = document.createElement('a');
+    a.href = shot.url; a.download = shot.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    return true;
+  }
+
+  // ---- Bảng ảnh vừa chụp ----
+  function openShot(shot) {
+    current = shot;
+    $('shotTitle').textContent = 'Ảnh vừa chụp – Pha ' + shot.phase;
+    $('shotImg').src = shot.url;
+    $('shotName').textContent = shot.name;
+    $('shotSheet').classList.add('open');
+  }
+  function closeShot() { $('shotSheet').classList.remove('open'); current = null; }
+
+  $('saveBtn').addEventListener('click', async () => {
+    if (!current) return;
+    const shot = current;
+    const ok = await saveShot(shot);
+    if (ok) {
+      shot.saved = true;
+      toast('Đã lưu ' + shot.name);
+      closeShot();
+      nextPhase();
+      renderList();
+    }
+  });
+  $('retake').addEventListener('click', () => {
+    if (current) {
+      const i = shots.indexOf(current);
+      if (i >= 0) { URL.revokeObjectURL(current.url); shots.splice(i, 1); }
+      refreshThumb();
+    }
+    closeShot();
+    if (!live) { fileInput.value = ''; fileInput.click(); }
+  });
+  $('shotClose').addEventListener('click', closeShot);
+
+  // ---- Danh sách ảnh ----
+  function refreshThumb() {
+    const t = $('thumbBtn');
+    $('count').textContent = shots.length;
+    t.classList.toggle('empty', !shots.length);
+    t.style.backgroundImage = shots.length ? `url("${shots[shots.length - 1].url}")` : '';
+  }
+  function renderList() {
+    const el = $('list'); el.innerHTML = '';
+    if (!shots.length) { el.innerHTML = '<div class="empty-list">Chưa có ảnh nào.</div>'; return; }
+    shots.slice().reverse().forEach(s => {
+      const d = document.createElement('div'); d.className = 'item' + (s.saved ? ' saved' : '');
+      const img = document.createElement('img'); img.src = s.url; img.alt = s.name;
+      img.addEventListener('click', () => { $('listSheet').classList.remove('open'); openShot(s); });
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = s.name;
+      const b = document.createElement('button'); b.textContent = s.saved ? 'Lưu lại' : 'Lưu';
+      b.addEventListener('click', async () => { if (await saveShot(s)) { s.saved = true; toast('Đã lưu ' + s.name); renderList(); } });
+      d.append(img, meta, b); el.appendChild(d);
+    });
+  }
+  $('thumbBtn').addEventListener('click', () => { renderList(); $('listSheet').classList.add('open'); });
+  $('listClose').addEventListener('click', () => $('listSheet').classList.remove('open'));
+
+  setPhase('A');
+  startLive();
+})();
+</script>
+</body>
+</html>
