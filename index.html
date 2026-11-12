@@ -66,6 +66,12 @@
   .ph{height:34px;min-width:38px;padding:0 10px;border-radius:8px;font-size:17px;font-weight:800;
     border:1.5px solid #4a525c;color:#fff;background:transparent}
   .ph.sel{color:#f5c400}
+  .ph{white-space:nowrap}
+  .cats{position:absolute;left:12px;bottom:12px;z-index:3;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+  .cats:empty{display:none}
+  .cat{height:34px;padding:0 12px;border-radius:8px;border:1.5px solid #4a525c;background:rgba(0,0,0,.55);
+    color:#fff;font-size:15px;font-weight:800;white-space:nowrap}
+  .cat.sel{color:#f5c400}
   .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
   .saveall[hidden]{display:none}
   .saveall:disabled{background:#262a31;color:var(--muted);opacity:1}
@@ -110,7 +116,7 @@
   .dlg-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .dlg-btns button{height:44px;border-radius:10px;background:#2a2f37;font-weight:700;font-size:16px}
   .dlg-btns .yes{background:#a8322c;color:#fff}
-  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 230px);transform:translateX(-50%);
+  .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 120px);transform:translateX(-50%);
     background:var(--fg);color:#111;font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;
     opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
   .toast.on{opacity:1}
@@ -132,6 +138,7 @@
   <button class="backbtn" id="backBtn" aria-label="Đổi thiết bị">←</button>
   <div class="badge"><div class="lbl" id="pill">A</div><div class="clock" id="clock">--</div></div>
   <button class="thumb empty" id="thumbBtn" aria-label="Chưa có ảnh"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-8 8"></path></svg><span class="n" id="count">0</span></button>
+  <div class="cats" id="cats"></div>
   <div class="flash" id="flash"></div>
 </div>
 
@@ -194,7 +201,12 @@
       opts:{ left:['1','2','3','4','5','6'], leftCols:3, right:['7','8','9','10','11','12'], rightCols:3 } },
     { id:'mc-trung-the',  items:['MÁY CẮT TRUNG THẾ', 'DAO CẮT TẢI LBS', 'RECLOSER', 'DAO CÁCH LY', 'CÁP'] },
     { id:'mba-1-cuon-ha', items:['MBA khô', 'MBA cấp nguồn recloser', 'MBA dầu 1 cuộn hạ'] },
-    { id:'mba-2-cuon-ha', items:['MBA 2 cuộn hạ'] },
+    { id:'mba-2-cuon-ha', items:['MBA 2 cuộn hạ'],
+      cats:[
+        { name:'R cách điện', opts:{ left:['Cao – Vỏ', 'Cao – Hạ1', 'Cao – Hạ2'], leftCols:1, right:['Hạ1 – Vỏ', 'Hạ2 – Vỏ'], rightCols:1 } },
+        { name:'R cuộn dây',  opts:{ left:['AB', 'BC', 'CA'], leftCols:1, right:['a1b1', 'a2n', 'b1c1', 'b2n', 'c1a1', 'c2n'], rightCols:2 } },
+        { name:'Tỷ số biến',  opts:{ left:['cuộn hạ 1'], leftCols:1, right:['cuộn hạ 2'], rightCols:1 } }
+      ] },
     { id:'mc-ha-the',     items:['MÁY CẮT HẠ THẾ'],
       opts:{ left:['A','B','C','N'], leftCols:2, right:['A-A','B-B','C-C','N-N'], rightCols:2 } },
     { id:'thanh-cai',     items:['THANH CÁI'],
@@ -297,10 +309,27 @@
     stopLive();
     $('homeFoot').textContent = shots.length ? `Còn ${shots.length} ảnh chưa lưu — mở lại một thiết bị để lưu` : '';
   }
+  // Các khung hạng mục xếp chồng (nếu nhóm thiết bị có): bấm khung nào thì hiện tùy chọn của khung đó, bấm lại để ẩn
+  let catIdx = null;
+  function renderCats(cats) {
+    const box = $('cats'); box.innerHTML = '';
+    (cats || []).forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'cat'; b.textContent = c.name;
+      b.addEventListener('click', () => selectCat(cats, catIdx === i ? null : i));
+      box.appendChild(b);
+    });
+  }
+  function selectCat(cats, i) {
+    catIdx = i;
+    [...$('cats').children].forEach((b, j) => { b.classList.toggle('sel', j === i); b.setAttribute('aria-pressed', j === i ? 'true' : 'false'); });
+    renderOptions(i === null ? null : cats[i].opts);
+  }
   function openDevice(d) {
     device = d;
     const g = GROUPS.find(x => x.id === d.group);
-    renderOptions(g && g.opts);
+    if (g && g.cats) { renderCats(g.cats); selectCat(g.cats, 0); }   // chọn sẵn khung đầu tiên
+    else { renderCats(null); catIdx = null; renderOptions(g && g.opts); }
     document.body.classList.remove('screen-home');
     if (location.hash !== '#cam') location.hash = 'cam';   // để nút Back của điện thoại quay về màn hình 1
     startLive();
@@ -361,7 +390,7 @@
   function addShot(src, sw, sh, date) {
     const p = phase;
     const canvas = stampCanvas(src, sw, sh, p, date);
-    const shot = { phase: p, date, name: uniqueName(p, date), blob: null, url: null, device: device ? device.name : '' };
+    const shot = { phase: p, date, name: uniqueName(p, date), blob: null, url: null, device: device ? device.name : '', cat: (() => { const g = device && GROUPS.find(x => x.id === device.group); return g && g.cats && catIdx !== null ? g.cats[catIdx].name : ''; })() };
     shot.ready = new Promise(res => canvas.toBlob(b => {
       shot.blob = b; shot.url = b ? URL.createObjectURL(b) : null; refresh(); res(b);
     }, 'image/jpeg', 0.92));
