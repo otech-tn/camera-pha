@@ -58,15 +58,18 @@
   .flash.on{opacity:.75;transition:none}
 
   /* Điều khiển */
-  .controls{background:#000;border-top:1px solid #1f2329;padding:10px 14px 18px;display:flex;flex-direction:column;gap:12px}
-  .phases{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .controls{background:#000;border-top:1px solid #1f2329;padding:12px 10px 18px;display:flex;flex-direction:column;gap:12px}
+  .opt-top{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .opt-top:empty{display:none}
+  .side{display:flex;justify-content:center}
+  .opt-grid{display:grid;gap:6px;justify-content:center;align-content:center}
   .ph{height:34px;min-width:38px;padding:0 10px;border-radius:8px;font-size:17px;font-weight:800;
     border:1.5px solid #4a525c;color:#fff;background:transparent}
   .ph.sel{color:#f5c400}
   .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
   .saveall[hidden]{display:none}
   .saveall:disabled{background:#262a31;color:var(--muted);opacity:1}
-  .row{display:flex;justify-content:center;align-items:center}
+  .row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
   .shutter{width:76px;height:76px;border-radius:50%;border:5px solid #6b737d;background:#fff}
   .shutter:active{transform:scale(.94)}
   .thumb{position:absolute;right:14px;top:14px;z-index:3;width:52px;height:52px;border-radius:10px;border:2px solid #2a2f37;
@@ -133,13 +136,11 @@
 </div>
 
 <div class="controls">
-  <div class="phases">
-    <button class="ph" data-p="A">A</button>
-    <button class="ph" data-p="B">B</button>
-    <button class="ph" data-p="C">C</button>
-  </div>
+  <div class="opt-top" id="optTop"></div>
   <div class="row">
+    <div class="side"><div class="opt-grid" id="optLeft"></div></div>
     <button class="shutter" id="shutter" aria-label="Chụp"></button>
+    <div class="side"><div class="opt-grid" id="optRight"></div></div>
   </div>
 </div>
 </div>
@@ -189,12 +190,15 @@
   // Danh sách thiết bị ở màn hình 1
   // Mỗi nhóm là một khung đỏ; các thiết bị trong cùng nhóm sẽ dùng chung một màn hình 2
   const GROUPS = [
-    { id:'su-la-fco',     items:['SỨ ĐỨNG', 'CHỐNG SÉT VAN (LA)', 'FCO'] },
+    { id:'su-la-fco',     items:['SỨ ĐỨNG', 'CHỐNG SÉT VAN (LA)', 'FCO'],
+      opts:{ left:['1','2','3','4','5','6'], leftCols:3, right:['7','8','9','10','11','12'], rightCols:3 } },
     { id:'mc-trung-the',  items:['MÁY CẮT TRUNG THẾ', 'DAO CẮT TẢI LBS', 'RECLOSER', 'DAO CÁCH LY', 'CÁP'] },
     { id:'mba-1-cuon-ha', items:['MBA khô', 'MBA cấp nguồn recloser', 'MBA dầu 1 cuộn hạ'] },
     { id:'mba-2-cuon-ha', items:['MBA 2 cuộn hạ'] },
-    { id:'mc-ha-the',     items:['MÁY CẮT HẠ THẾ'] },
-    { id:'thanh-cai',     items:['THANH CÁI'] }
+    { id:'mc-ha-the',     items:['MÁY CẮT HẠ THẾ'],
+      opts:{ left:['A','B','C','N'], leftCols:2, right:['A-A','B-B','C-C','N-N'], rightCols:2 } },
+    { id:'thanh-cai',     items:['THANH CÁI'],
+      opts:{ top:['L1','L2','L3'] } }
   ];
   let device = null;
 
@@ -226,7 +230,24 @@
     });
   }
   // Bấm nút để chọn, bấm lại nút đang chọn để bỏ chọn
-  document.querySelectorAll('.ph').forEach(b => b.addEventListener('click', () => setPhase(phase === b.dataset.p ? null : b.dataset.p)));
+  // Vẽ các nút tùy chọn theo nhóm thiết bị đang chọn
+  function renderOptions(o) {
+    o = o || {};
+    const fill = (el, list, cols) => {
+      el.innerHTML = '';
+      if (cols) el.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+      (list || []).forEach(x => {
+        const b = document.createElement('button');
+        b.className = 'ph'; b.dataset.p = x; b.textContent = x;
+        b.addEventListener('click', () => setPhase(phase === x ? null : x));
+        el.appendChild(b);
+      });
+    };
+    fill($('optTop'), o.top);
+    fill($('optLeft'), o.left, o.leftCols || 1);
+    fill($('optRight'), o.right, o.rightCols || 1);
+    setPhase(null);   // mặc định không chọn tùy chọn nào
+  }
 
   setInterval(() => { $('clock').textContent = fmtStamp(new Date()); }, 1000);
   $('clock').textContent = fmtStamp(new Date());
@@ -278,6 +299,8 @@
   }
   function openDevice(d) {
     device = d;
+    const g = GROUPS.find(x => x.id === d.group);
+    renderOptions(g && g.opts);
     document.body.classList.remove('screen-home');
     if (location.hash !== '#cam') location.hash = 'cam';   // để nút Back của điện thoại quay về màn hình 1
     startLive();
@@ -329,7 +352,7 @@
   }
 
   function uniqueName(p, date) {
-    const tag = !p ? 'Anh' : (ORDER.includes(p) ? 'Pha' + p : String(p).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-'));
+    const tag = !p ? 'Anh' : (['A', 'B', 'C', 'N'].includes(p) ? 'Pha' + p : String(p).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-'));
     let base = `${tag}_${fmtFile(date)}`, name = base + '.jpg', i = 2;
     while (shots.some(s => s.name === name)) name = `${base}_${i++}.jpg`;
     return name;
@@ -506,7 +529,7 @@
 
   window.addEventListener('beforeunload', e => { if (shots.length) { e.preventDefault(); e.returnValue = ''; } });
 
-  setPhase('A');
+  setPhase(null);
   refresh();
   renderHome();
   if (location.hash === '#cam') location.hash = '';
