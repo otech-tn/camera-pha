@@ -100,6 +100,13 @@
   .item button{margin:0 8px 8px;height:34px;border-radius:8px;background:#3a1c1c;color:#ffb4b0;font-size:14px;font-weight:600}
   .empty-list{color:var(--muted);text-align:center;padding:40px 10px;grid-column:1/-1}
 
+  .dlg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:24px}
+  .dlg.open{display:flex}
+  .dlg-box{width:min(320px,100%);background:#1b1f25;border:1px solid var(--line);border-radius:14px;padding:18px 16px 14px}
+  .dlg-box p{margin:0 0 16px;font-size:16px;font-weight:600;line-height:1.4;text-align:center}
+  .dlg-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dlg-btns button{height:44px;border-radius:10px;background:#2a2f37;font-weight:700;font-size:16px}
+  .dlg-btns .yes{background:#a8322c;color:#fff}
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 230px);transform:translateX(-50%);
     background:var(--fg);color:#111;font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;
     opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
@@ -157,6 +164,13 @@
   </div>
 </div>
 
+<div class="dlg" id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgMsg">
+  <div class="dlg-box">
+    <p id="dlgMsg"></p>
+    <div class="dlg-btns"><button id="dlgNo">Hủy</button><button id="dlgYes" class="yes">Xóa</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -210,11 +224,6 @@
       b.classList.toggle('sel', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-  }
-  function nextPhase() {
-    if (!phase) return;                                  // không chọn nhãn thì giữ nguyên
-    const i = ORDER.indexOf(phase);
-    if (i >= 0) setPhase(ORDER[(i + 1) % ORDER.length]); // đang chọn A/B/C thì tự chuyển A→B→C
   }
   // Bấm nút để chọn, bấm lại nút đang chọn để bỏ chọn
   document.querySelectorAll('.ph').forEach(b => b.addEventListener('click', () => setPhase(phase === b.dataset.p ? null : b.dataset.p)));
@@ -334,7 +343,6 @@
       shot.blob = b; shot.url = b ? URL.createObjectURL(b) : null; refresh(); res(b);
     }, 'image/jpeg', 0.92));
     shots.push(shot);
-    nextPhase();
     refresh();
     toast(p ? `Đã chụp ${p}` : 'Đã chụp');
   }
@@ -431,7 +439,7 @@
     t.style.backgroundImage = last && last.url ? `url("${last.url}")` : '';
     $('saveAll2').disabled = !n;
     $('saveAll2').textContent = n ? `Lưu ${n} ảnh vào máy` : 'Chưa có ảnh để lưu';
-    t.setAttribute('aria-label', n ? `Lưu ${n} ảnh vào máy (giữ lâu để xem, xóa)` : 'Chưa có ảnh');
+    t.setAttribute('aria-label', n ? `Xem ${n} ảnh đã chụp` : 'Chưa có ảnh');
     $('listTitle').textContent = `Ảnh chưa lưu (${n})`;
     if ($('listSheet').classList.contains('open')) renderList();
   }
@@ -445,7 +453,7 @@
       img.addEventListener('click', () => openShot(s));
       const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = s.name;
       const b = document.createElement('button'); b.textContent = 'Xóa';
-      b.addEventListener('click', () => removeShot(s));
+      b.addEventListener('click', async () => { if (await askConfirm('Bạn có chắc muốn xóa ảnh này không?')) removeShot(s); });
       d.append(img, meta, b); el.appendChild(d);
     });
   }
@@ -461,21 +469,10 @@
     $('shotName').textContent = s.name;
     $('shotSheet').classList.add('open');
   }
-  let pressTimer = null, longPressed = false;
   const thumb = $('thumbBtn');
   const openList = () => { renderList(); $('listSheet').classList.add('open'); };
-  thumb.addEventListener('pointerdown', () => {
-    longPressed = false;
-    clearTimeout(pressTimer);
-    pressTimer = setTimeout(() => { longPressed = true; if (shots.length) openList(); }, 550);
-  });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => thumb.addEventListener(ev, () => clearTimeout(pressTimer)));
   thumb.addEventListener('contextmenu', e => e.preventDefault());
-  thumb.addEventListener('click', () => {
-    if (longPressed) { longPressed = false; return; }
-    if (!shots.length) { toast('Chưa có ảnh nào'); return; }
-    saveAll();
-  });
+  thumb.addEventListener('click', openList);
   $('listClose').addEventListener('click', () => $('listSheet').classList.remove('open'));
 
   // Vuốt từ phải sang trái trên màn hình camera: mở danh sách ảnh chưa lưu; vuốt sang phải trên danh sách: đóng
@@ -492,7 +489,20 @@
   onSwipe($('listSheet'), dir => { if (dir === 'right') $('listSheet').classList.remove('open'); });
   $('shotClose').addEventListener('click', () => { $('shotSheet').classList.remove('open'); $('listSheet').classList.remove('open'); });
   $('backList').addEventListener('click', () => $('shotSheet').classList.remove('open'));
-  $('delOne').addEventListener('click', () => { if (viewing) removeShot(viewing); viewing = null; $('shotSheet').classList.remove('open'); });
+  $('delOne').addEventListener('click', async () => {
+    if (!viewing || !(await askConfirm('Bạn có chắc muốn xóa ảnh này không?'))) return;
+    removeShot(viewing); viewing = null; $('shotSheet').classList.remove('open');
+  });
+
+  // Hộp thoại xác nhận (tự làm, vì một số nơi chặn confirm() của trình duyệt)
+  function askConfirm(msg) {
+    return new Promise(res => {
+      $('dlgMsg').textContent = msg; $('dlg').classList.add('open');
+      const done = v => { $('dlg').classList.remove('open'); $('dlgYes').onclick = $('dlgNo').onclick = null; res(v); };
+      $('dlgYes').onclick = () => done(true);
+      $('dlgNo').onclick = () => done(false);
+    });
+  }
 
   window.addEventListener('beforeunload', e => { if (shots.length) { e.preventDefault(); e.returnValue = ''; } });
 
