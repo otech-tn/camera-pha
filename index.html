@@ -52,9 +52,9 @@
   body[data-phase="A"] .pill{color:#111}
   .clock{align-self:flex-start;background:rgba(0,0,0,.55);font-weight:600;font-size:15px;padding:4px 10px;border-radius:8px;
     font-variant-numeric:tabular-nums}
-  .pending{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.6);border-radius:10px;padding:6px 12px;
-    font-weight:700;font-size:15px;pointer-events:none}
-  .pending b{font-size:22px;font-variant-numeric:tabular-nums}
+  .pending{position:absolute;right:12px;top:14px;z-index:2;background:rgba(0,0,0,.55);border-radius:8px;padding:3px 8px;
+    font-weight:700;font-size:14px;pointer-events:none;display:flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+  .pending svg{display:block}
   .native-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;text-align:center;padding:24px;color:var(--muted);font-size:15px;line-height:1.45}
   body.live .native-hint{display:none}
@@ -63,13 +63,14 @@
   .flash.on{opacity:.75;transition:none}
 
   /* Điều khiển */
-  .controls{background:var(--panel);border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:12px}
-  .phases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .ph{height:54px;border-radius:12px;font-size:24px;font-weight:800;border:2px solid var(--c);color:var(--c);background:transparent}
+  .controls{background:var(--panel);border-top:1px solid var(--line);padding:10px 14px 12px;display:flex;flex-direction:column;gap:10px}
+  .phases{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .ph{height:34px;min-width:38px;padding:0 10px;border-radius:8px;font-size:17px;font-weight:800;
+    border:1.5px solid #3a414c;color:var(--c);background:transparent}
   .ph[data-p="A"]{--c:var(--A)} .ph[data-p="B"]{--c:var(--B)} .ph[data-p="C"]{--c:var(--C)}
-  .ph.sel{background:var(--c);color:#fff}
-  .ph[data-p="A"].sel{color:#111}
-  .saveall{height:52px;border-radius:12px;background:var(--fg);color:#111;font-weight:800;font-size:17px}
+  .ph.sel{border:2px solid var(--c)}
+  .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
+  .saveall[hidden]{display:none}
   .saveall:disabled{background:#262a31;color:var(--muted);opacity:1}
   .row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
   .shutter{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:var(--cur);
@@ -123,8 +124,8 @@
 <div class="view" id="view">
   <video id="video" playsinline muted autoplay></video>
   <button class="backbtn" id="backBtn" aria-label="Đổi thiết bị">←</button>
-  <div class="badge"><div class="pill" id="pill">PHA A</div><div class="clock" id="clock">--</div><div class="devname" id="devName"></div></div>
-  <div class="pending">Chưa lưu: <b id="pendingN">0</b></div>
+  <div class="badge"><div class="pill" id="pill">PHA A</div><div class="clock" id="clock">--</div></div>
+  <div class="pending" title="Số ảnh chưa lưu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-8 8"></path></svg><b id="pendingN">0</b></div>
   <div class="native-hint" id="hint">
     <div class="big-letter" id="bigLetter">A</div>
     <div>Chọn pha bên dưới, rồi bấm nút tròn để mở camera.<br>Nhãn pha và ngày giờ được in lên ảnh ngay sau khi chụp.</div>
@@ -272,7 +273,6 @@
   }
   function openDevice(d) {
     device = d;
-    $('devName').textContent = d.name;
     document.body.classList.remove('screen-home');
     if (location.hash !== '#cam') location.hash = 'cam';   // để nút Back của điện thoại quay về màn hình 1
     startLive();
@@ -342,7 +342,7 @@
     shots.push(shot);
     nextPhase();
     refresh();
-    toast(`Đã chụp Pha ${p} · chưa lưu ${shots.length} ảnh`);
+    toast(`Đã chụp Pha ${p}`);
   }
 
   // ---- Chụp ----
@@ -440,6 +440,7 @@
     for (const id of ['saveAll', 'saveAll2']) {
       $(id).disabled = !n;
       $(id).textContent = n ? `Lưu ${n} ảnh vào máy` : 'Chưa có ảnh để lưu';
+      if (id === 'saveAll') $(id).hidden = !n;
     }
     $('listTitle').textContent = `Ảnh chưa lưu (${n})`;
     if ($('listSheet').classList.contains('open')) renderList();
