@@ -199,8 +199,17 @@
   const GROUPS = [
     { id:'su-la-fco',     items:['SỨ ĐỨNG', 'CHỐNG SÉT VAN (LA)', 'FCO'],
       opts:{ left:['1','2','3','4','5','6'], leftCols:3, right:['7','8','9','10','11','12'], rightCols:3 } },
-    { id:'mc-trung-the',  items:['MÁY CẮT TRUNG THẾ', 'DAO CẮT TẢI LBS', 'RECLOSER', 'DAO CÁCH LY', 'CÁP'] },
-    { id:'mba-1-cuon-ha', items:['MBA khô', 'MBA cấp nguồn recloser', 'MBA dầu 1 cuộn hạ'] },
+    { id:'mc-trung-the',  items:['MÁY CẮT TRUNG THẾ', 'DAO CẮT TẢI LBS', 'RECLOSER', 'DAO CÁCH LY', 'CÁP'],
+      cats:[
+        { name:'Điện trở',       opts:{ left:['A', 'B', 'C'], leftCols:1, right:['A-A', 'B-B', 'C-C', 'pha-vỏ'], rightCols:1 } },
+        { name:'Phóng cao áp',   opts:{ top:['pha–(pha+vỏ)', 'pha-pha'] } },
+        { name:'Time đóng cắt',  opts:{ left:['close a', 'close b', 'close c'], leftCols:1, right:['open a', 'open b', 'open c'], rightCols:1 } }
+      ] },
+    { id:'mba-1-cuon-ha', items:['MBA khô', 'MBA cấp nguồn recloser', 'MBA dầu 1 cuộn hạ'],
+      cats:[
+        { name:'R cách điện', opts:{ left:['cao-vỏ', 'cao-hạ'], leftCols:1, right:['hạ-vỏ'], rightCols:1 } },
+        { name:'R cuộn dây',  opts:{ left:['AB', 'BC', 'CA', 'AN'], leftCols:1, right:['an', 'bn', 'cn'], rightCols:1 } }
+      ] },
     { id:'mba-2-cuon-ha', items:['MBA 2 cuộn hạ'],
       cats:[
         { name:'R cách điện', opts:{ left:['Cao – Vỏ', 'Cao – Hạ1', 'Cao – Hạ2'], leftCols:1, right:['Hạ1 – Vỏ', 'Hạ2 – Vỏ'], rightCols:1 } },
