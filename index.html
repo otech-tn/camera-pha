@@ -107,6 +107,11 @@
     min-width:22px;height:22px;line-height:22px;font-size:13px;padding:0 5px}
   .thumb.empty .n{display:none}
   .thumb{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+  .torch{position:absolute;right:18px;top:80px;z-index:3;width:44px;height:44px;border-radius:50%;
+    background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
+  .torch[hidden]{display:none}
+  .torch.on{color:#f5c400}
+  .torch.on svg path{fill:currentColor}
 
   /* Bảng */
   .sheet{position:fixed;inset:0;background:#000;display:none;flex-direction:column;z-index:10;
@@ -159,6 +164,7 @@
   <button class="backbtn" id="backBtn" aria-label="Đổi thiết bị">←</button>
   <div class="badge"><div class="lbl" id="pill">A</div><div class="clock" id="clock">--</div></div>
   <button class="thumb empty" id="thumbBtn" aria-label="Chưa có ảnh"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M21 16l-5-5-8 8"></path></svg><span class="n" id="count">0</span></button>
+  <button class="torch" id="torchBtn" aria-label="Bật đèn" aria-pressed="false" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12L13 2z"></path></svg></button>
   <div class="cats" id="cats"></div>
   <div class="flash" id="flash"></div>
 </div>
@@ -449,6 +455,7 @@
       await video.play();
       live = true;
       document.body.classList.add('live');
+      initTorch();
       return true;
     } catch (e) {
       live = false;
@@ -456,7 +463,37 @@
       return false;
     }
   }
+  // ---- Đèn (chỉ hiện nút khi máy và trình duyệt cho phép bật đèn) ----
+  let torchOn = false;
+  function torchUI() {
+    const b = $('torchBtn');
+    b.classList.toggle('on', torchOn);
+    b.setAttribute('aria-pressed', torchOn ? 'true' : 'false');
+    b.setAttribute('aria-label', torchOn ? 'Tắt đèn' : 'Bật đèn');
+  }
+  function initTorch() {
+    torchOn = false; torchUI();
+    const tr = stream && stream.getVideoTracks()[0];
+    let ok = false;
+    try { ok = !!(tr && tr.getCapabilities && tr.getCapabilities().torch); } catch (e) {}
+    $('torchBtn').hidden = !ok;
+  }
+  async function setTorch(on) {
+    const tr = stream && stream.getVideoTracks()[0];
+    if (!tr) return;
+    try {
+      await tr.applyConstraints({ advanced: [{ torch: on }] });
+      torchOn = on;            // tự nhớ trạng thái (iOS 18 báo sai qua getSettings)
+    } catch (e) {
+      torchOn = false;
+      if (on) { toast('Máy không bật được đèn', 2000); $('torchBtn').hidden = true; }
+    }
+    torchUI();
+  }
+  $('torchBtn').addEventListener('click', () => setTorch(!torchOn));
+
   function stopLive() {
+    torchOn = false; torchUI(); $('torchBtn').hidden = true;
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null; live = false; video.srcObject = null;
     document.body.classList.remove('live');
@@ -520,6 +557,7 @@
   });
 
   document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && torchOn) setTorch(false);   // tắt đèn khi rời ứng dụng
     if (document.visibilityState === 'visible' && live && device) {
       const tr = stream && stream.getVideoTracks()[0];
       if (!tr || tr.readyState === 'ended') startLive();
