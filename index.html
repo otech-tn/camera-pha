@@ -84,9 +84,14 @@
   .free-msg{display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:15px;font-weight:700;text-align:center}
   .free-msg .dot{width:10px;height:10px;border-radius:50%;background:#d93a33;flex:none;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.25}}
-  .free-bar{display:flex;gap:8px;align-items:center}
-  .free-bar input{flex:1;min-width:0;height:42px;box-sizing:border-box;border-radius:10px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:0 12px;font-size:16px;font-family:inherit}
-  .free-bar button{height:42px;padding:0 16px;border-radius:10px;background:#fff;color:#111;font-size:16px;font-weight:800}
+  .free-bar{display:flex;gap:8px;align-items:center;justify-content:center}
+  .free-bar input{width:190px;min-width:0;height:36px;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:0 12px;font-size:16px;font-family:inherit}
+  .free-bar button{width:36px;height:36px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
+  .free-bar .ok{background:#fff;color:#111}
+  .free-bar .add{border:1.5px solid #4a525c;color:#fff}
+  .swrap{position:relative;margin-top:2px}
+  .swrap .cat{padding:0 14px 0 12px}
+  .swrap .xclr{width:20px;height:20px;right:-8px;top:-7px}
   .free-msg[hidden],.free-bar[hidden]{display:none}
   .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
   .saveall[hidden]{display:none}
@@ -162,8 +167,9 @@
   <div class="free-msg" id="freeMsg" hidden><span class="dot"></span><span id="freeMsgTxt">Đang nghe… nói xong bấm micro để dừng</span></div>
   <div class="free-bar" id="freeBar" hidden>
     <label for="freeInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Nhãn in lên ảnh</label>
-    <input id="freeInput" type="text" placeholder="Gõ hoặc đọc nhãn cần in…" autocomplete="off" enterkeyhint="done">
-    <button id="freeDone">Xong</button>
+    <input id="freeInput" type="text" autocomplete="off" enterkeyhint="done">
+    <button class="ok" id="freeDone" aria-label="Dùng nhãn này"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
+    <button class="add" id="freeAdd" aria-label="Thêm nhãn vào danh sách"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
   </div>
   <div class="opt-top" id="optTop"></div>
   <div class="row">
@@ -303,7 +309,30 @@
 
   // ---- Khác: nhãn tự nhập (thu âm hoặc gõ phím) ----
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, fmode = null, fsrc = null;   // fsrc: nhãn đang có được nhập bằng 'mic' hay 'kb'
+  let rec = null, fmode = null, fsrc = null;   // fsrc: nhãn đang có đến từ 'mic', 'kb' hay khung đã lưu 'saved'
+  let savedLabels = [];   // nhãn đã lưu bằng nút +: giữ khi về màn hình 1, mất khi tải lại trang
+  function renderSaved() {
+    const box = $('cats'); box.innerHTML = '';
+    savedLabels.forEach(t => {
+      const on = fsrc === 'saved' && phase === t;
+      const w = document.createElement('div'); w.className = 'swrap';
+      const b = document.createElement('button');
+      b.className = 'cat' + (on ? ' sel' : ''); b.textContent = t; b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        if (fsrc === 'saved' && phase === t) { fsrc = null; setPhase(null); }
+        else { fsrc = 'saved'; setPhase(t); }
+        freeMode(null); renderSaved();
+      });
+      const x = document.createElement('button');
+      x.className = 'xclr'; x.innerHTML = X_SVG; x.setAttribute('aria-label', 'Xóa nhãn ' + t);
+      x.addEventListener('click', () => {
+        savedLabels = savedLabels.filter(v => v !== t);
+        if (fsrc === 'saved' && phase === t) { fsrc = null; setPhase(null); }
+        renderSaved(); updX();
+      });
+      w.appendChild(b); w.appendChild(x); box.appendChild(w);
+    });
+  }
   const X_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"></path></svg>';
   function updX() {
     const xm = $('xMic'), xk = $('xKb');
@@ -328,9 +357,11 @@
       return w;
     };
     fsrc = null;
+    renderSaved();
     $('optLeft').appendChild(mk('micBtn', MIC_SVG, 'Thu âm để nhập nhãn', () => fmode === 'mic' ? stopMic() : startMic()));
     $('optRight').appendChild(mk('kbBtn', KB_SVG, 'Gõ phím để nhập nhãn', () => {
       if (fmode === 'kb') { freeMode(null); return; }
+      if (fmode !== 'mic') $('freeInput').value = (fsrc === 'mic' || fsrc === 'kb') && phase ? phase : '';
       fsrc = fmode === 'mic' ? 'mic' : 'kb';
       freeMode('kb');
     }));
@@ -345,10 +376,10 @@
     if (kb) kb.classList.toggle('on', m === 'kb');
     if (m === 'kb') {
       const i = $('freeInput');
-      if (!i.value && phase) i.value = phase;
       setTimeout(() => { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 30);
     }
     if (!m) $('freeInput').blur();
+    if (device && device.group === 'khac') renderSaved();
     updX();
   }
   function startMic() {
@@ -389,9 +420,18 @@
     const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
     if (!t) fsrc = null;
     setPhase(t || null);
-    freeMode(null);
+    freeMode(null); renderSaved();
   }
   $('freeDone').addEventListener('click', freeDone);
+  $('freeAdd').addEventListener('click', () => {
+    const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
+    if (t) {
+      if (!savedLabels.includes(t)) savedLabels.push(t);
+      fsrc = 'saved'; setPhase(t);
+      $('freeInput').value = '';
+    }
+    freeMode(null); renderSaved();
+  });
   $('freeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); freeDone(); } });
 
   setInterval(() => { $('clock').textContent = fmtStamp(new Date()); }, 1000);
