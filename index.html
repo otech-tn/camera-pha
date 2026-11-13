@@ -27,7 +27,9 @@
     background:#dcebfb;font-family:'Be Vietnam Pro',system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
   .logo{display:flex;justify-content:center}
   .logo img{width:200px;height:auto;display:block;opacity:.55}
-  .groups{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+  .groups{flex:1;display:flex;flex-direction:column;gap:8px;padding-top:6px}
+  .grp.khac{width:200px;align-self:center;box-sizing:border-box;margin-top:auto}
+  .grp.khac .chip{padding:2px 10px}
   .grp{background:#fff;border:2px solid #d93a33;border-radius:18px;padding:6px;display:flex;flex-wrap:wrap;gap:5px}
   .chip{flex:1 1 auto;min-height:34px;padding:3px 10px;background:#f6faf7;border:1px solid #e6efe9;border-radius:12px;
     display:flex;align-items:center;justify-content:center;text-align:center;color:#15703a;
@@ -49,6 +51,7 @@
   .badge{position:absolute;left:64px;top:16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;z-index:2;pointer-events:none}
   .lbl{color:#15703a;font-weight:800;font-size:23px;line-height:1.1;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0px 1px 0 #fff,0px -1px 0 #fff,1px 0px 0 #fff,-1px 0px 0 #fff}
   .lbl[hidden]{display:none}
+  .lbl{max-width:calc(100vw - 140px);overflow-wrap:anywhere}
   .clock{color:#d93a33;font-weight:700;font-size:15px;line-height:1.2;font-variant-numeric:tabular-nums;text-shadow:-0.75px -0.75px 0 #fff,0.75px -0.75px 0 #fff,-0.75px 0.75px 0 #fff,0.75px 0.75px 0 #fff,0px 0.75px 0 #fff,0px -0.75px 0 #fff,0.75px 0px 0 #fff,-0.75px 0px 0 #fff}
   .native-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;text-align:center;padding:24px;color:var(--muted);font-size:15px;line-height:1.45}
@@ -72,6 +75,15 @@
   .cat{height:34px;padding:0 12px;border-radius:8px;border:1.5px solid #4a525c;background:rgba(0,0,0,.55);
     color:#fff;font-size:15px;font-weight:800;white-space:nowrap}
   .cat.sel{color:#f5c400}
+  .rnd{width:54px;height:54px;border-radius:50%;border:1.5px solid #4a525c;color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
+  .rnd.on{color:#f5c400}
+  .free-msg{display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:15px;font-weight:700;text-align:center}
+  .free-msg .dot{width:10px;height:10px;border-radius:50%;background:#d93a33;flex:none;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .free-bar{display:flex;gap:8px;align-items:center}
+  .free-bar input{flex:1;min-width:0;height:42px;box-sizing:border-box;border-radius:10px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:0 12px;font-size:16px;font-family:inherit}
+  .free-bar button{height:42px;padding:0 16px;border-radius:10px;background:#fff;color:#111;font-size:16px;font-weight:800}
+  .free-msg[hidden],.free-bar[hidden]{display:none}
   .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
   .saveall[hidden]{display:none}
   .saveall:disabled{background:#262a31;color:var(--muted);opacity:1}
@@ -143,6 +155,12 @@
 </div>
 
 <div class="controls">
+  <div class="free-msg" id="freeMsg" hidden><span class="dot"></span><span id="freeMsgTxt">Đang nghe… nói xong bấm micro để dừng</span></div>
+  <div class="free-bar" id="freeBar" hidden>
+    <label for="freeInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Nhãn in lên ảnh</label>
+    <input id="freeInput" type="text" placeholder="Gõ hoặc đọc nhãn cần in…" autocomplete="off" enterkeyhint="done">
+    <button id="freeDone">Xong</button>
+  </div>
   <div class="opt-top" id="optTop"></div>
   <div class="row">
     <div class="side"><div class="opt-grid" id="optLeft"></div></div>
@@ -219,8 +237,17 @@
     { id:'mc-ha-the',     items:['MÁY CẮT HẠ THẾ'],
       opts:{ left:['A','B','C','N'], leftCols:2, right:['A-A','B-B','C-C','N-N'], rightCols:2 } },
     { id:'thanh-cai',     items:['THANH CÁI'],
-      opts:{ top:['L1','L2','L3'] } }
+      opts:{ top:['L1','L2','L3'] } },
+    // Khác: tự nhập nhãn bằng giọng nói hoặc bàn phím
+    { id:'khac',          items:['KHÁC'], free:true }
   ];
+  const WAVE = (() => {
+    const hs = [4,8,14,10,18,26,20,28,16,22,12,14,8,6,4];
+    return '<svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">' + hs.map((h, i) =>
+      `<rect x="${(2.3 + i * 26 / 14).toFixed(2)}" y="${(16 - h / 2).toFixed(1)}" width="1.5" height="${h}" rx="0.75" fill="${i < 5 ? '#d93a33' : '#15703a'}"></rect>`).join('') + '</svg>';
+  })();
+  const MIC_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>';
+  const KB_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"></path></svg>';
   let device = null;
 
   try {
@@ -270,6 +297,75 @@
     setPhase(null);   // mặc định không chọn tùy chọn nào
   }
 
+  // ---- Khác: nhãn tự nhập (thu âm hoặc gõ phím) ----
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, fmode = null;
+  function renderFree() {
+    renderOptions(null);
+    const mk = (id, svg, label, fn) => {
+      const b = document.createElement('button');
+      b.className = 'rnd'; b.id = id; b.innerHTML = svg; b.setAttribute('aria-label', label);
+      b.addEventListener('click', fn); return b;
+    };
+    $('optLeft').appendChild(mk('micBtn', MIC_SVG, 'Thu âm để nhập nhãn', () => fmode === 'mic' ? stopMic() : startMic()));
+    $('optRight').appendChild(mk('kbBtn', KB_SVG, 'Gõ phím để nhập nhãn', () => freeMode(fmode === 'kb' ? null : 'kb')));
+  }
+  function freeMode(m) {
+    fmode = m;
+    if (m !== 'mic' && rec) { try { rec.abort(); } catch (e) {} rec = null; }
+    $('freeMsg').hidden = m !== 'mic';
+    $('freeBar').hidden = m !== 'kb' && m !== 'mic';
+    const mb = $('micBtn'), kb = $('kbBtn');
+    if (mb) mb.classList.toggle('on', m === 'mic');
+    if (kb) kb.classList.toggle('on', m === 'kb');
+    if (m === 'kb') {
+      const i = $('freeInput');
+      if (!i.value && phase) i.value = phase;
+      setTimeout(() => { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 30);
+    }
+    if (!m) $('freeInput').blur();
+  }
+  function startMic() {
+    if (!SR) {
+      freeMode('kb');
+      toast('Máy không hỗ trợ thu âm trên web — bấm micro trên bàn phím để đọc', 3000);
+      return;
+    }
+    const inp = $('freeInput');
+    inp.value = '';
+    freeMode('mic');
+    $('freeMsgTxt').textContent = 'Đang nghe… nói xong bấm micro để dừng';
+    try {
+      rec = new SR();
+      rec.lang = 'vi-VN'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      rec.onresult = e => {
+        let t = '';
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        inp.value = t.trim();
+      };
+      rec.onerror = e => {
+        const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Chưa cho phép dùng micro'
+          : e.error === 'network' ? 'Không có internet' : e.error === 'no-speech' ? 'Không nghe thấy gì' : '';
+        if (msg) toast(msg, 2500);
+      };
+      rec.onend = () => { if (fmode === 'mic') { rec = null; freeMode('kb'); } };
+      rec.start();
+    } catch (e) {
+      rec = null; freeMode('kb');
+    }
+  }
+  function stopMic() {
+    if (rec) { try { rec.stop(); } catch (e) { freeMode('kb'); } }   // onend sẽ chuyển sang ô sửa
+    else freeMode('kb');
+  }
+  function freeDone() {
+    const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
+    setPhase(t || null);
+    freeMode(null);
+  }
+  $('freeDone').addEventListener('click', freeDone);
+  $('freeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); freeDone(); } });
+
   setInterval(() => { $('clock').textContent = fmtStamp(new Date()); }, 1000);
   $('clock').textContent = fmtStamp(new Date());
 
@@ -302,10 +398,12 @@
   function renderHome() {
     const list = $('homeList'); list.innerHTML = '';
     GROUPS.forEach(g => {
-      const box = document.createElement('div'); box.className = 'grp';
+      const box = document.createElement('div'); box.className = g.free ? 'grp khac' : 'grp';
       g.items.forEach(name => {
         const b = document.createElement('button');
-        b.className = 'chip'; b.textContent = name;
+        b.className = 'chip';
+        if (g.free) { b.innerHTML = WAVE; b.setAttribute('aria-label', 'Khác: thu âm hoặc gõ phím'); }
+        else b.textContent = name;
         b.addEventListener('click', () => openDevice({ group:g.id, name }));
         box.appendChild(b);
       });
@@ -314,6 +412,7 @@
   }
   function showHome() {
     device = null;
+    freeMode(null);
     document.body.classList.add('screen-home');
     stopLive();
     $('homeFoot').textContent = shots.length ? `Còn ${shots.length} ảnh chưa lưu — mở lại một thiết bị để lưu` : '';
@@ -337,7 +436,9 @@
   function openDevice(d) {
     device = d;
     const g = GROUPS.find(x => x.id === d.group);
-    if (g && g.cats) { renderCats(g.cats); selectCat(g.cats, 0); }   // chọn sẵn khung đầu tiên
+    freeMode(null);
+    if (g && g.free) { renderCats(null); catIdx = null; renderFree(); }
+    else if (g && g.cats) { renderCats(g.cats); selectCat(g.cats, 0); }   // chọn sẵn khung đầu tiên
     else { renderCats(null); catIdx = null; renderOptions(g && g.opts); }
     document.body.classList.remove('screen-home');
     if (location.hash !== '#cam') location.hash = 'cam';   // để nút Back của điện thoại quay về màn hình 1
@@ -385,12 +486,16 @@
     };
     const yDate = h - m;
     draw(t2, fD, 700, '#d93a33', yDate);
-    if (p) draw(p, fL, 800, '#15703a', yDate - fD * 1.25);
+    if (p) {
+      g.font = `800 ${fL}px ${FONT}`;
+      const fit = Math.max(fD, Math.min(fL, Math.floor(fL * (w - 2 * m) / Math.max(1, g.measureText(p).width))));
+      draw(p, fit, 800, '#15703a', yDate - fD * 1.25);
+    }
     return c;
   }
 
   function uniqueName(p, date) {
-    const tag = !p ? 'Anh' : (['A', 'B', 'C', 'N'].includes(p) ? 'Pha' + p : String(p).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-'));
+    const tag = !p ? 'Anh' : (['A', 'B', 'C', 'N'].includes(p) ? 'Pha' + p : String(p).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'Anh');
     let base = `${tag}_${fmtFile(date)}`, name = base + '.jpg', i = 2;
     while (shots.some(s => s.name === name)) name = `${base}_${i++}.jpg`;
     return name;
