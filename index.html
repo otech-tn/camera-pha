@@ -563,8 +563,10 @@
   }
 
   function uniqueName(p, date) {
-    const tag = !p ? 'Anh' : (['A', 'B', 'C', 'N'].includes(p) ? 'Pha' + p : String(p).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'Anh');
-    let base = `${tag}_${fmtFile(date)}`, name = base + '.jpg', i = 2;
+    // Dạng: ngày-tháng-năm_giâys phút'giờh_nhãn  (dấu / không được phép trong tên file nên thay bằng -)
+    const when = `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}_${pad(date.getSeconds())}s${pad(date.getMinutes())}'${pad(date.getHours())}h`;
+    const lab = p ? String(p).normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    let base = lab ? `${when}_${lab}` : when, name = base + '.jpg', i = 2;
     while (shots.some(s => s.name === name)) name = `${base}_${i++}.jpg`;
     return name;
   }
