@@ -77,6 +77,10 @@
   .cat.sel{color:#f5c400}
   .rnd{width:54px;height:54px;border-radius:50%;border:1.5px solid #4a525c;color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
   .rnd.on{color:#f5c400}
+  .rwrap{position:relative}
+  .xclr{position:absolute;right:-6px;top:-6px;width:24px;height:24px;border-radius:50%;background:#d93a33;border:2px solid #000;
+    color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
+  .xclr[hidden]{display:none}
   .free-msg{display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:15px;font-weight:700;text-align:center}
   .free-msg .dot{width:10px;height:10px;border-radius:50%;background:#d93a33;flex:none;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.25}}
@@ -299,16 +303,37 @@
 
   // ---- Khác: nhãn tự nhập (thu âm hoặc gõ phím) ----
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, fmode = null;
+  let rec = null, fmode = null, fsrc = null;   // fsrc: nhãn đang có được nhập bằng 'mic' hay 'kb'
+  const X_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"></path></svg>';
+  function updX() {
+    const xm = $('xMic'), xk = $('xKb');
+    if (xm) xm.hidden = !(phase && !fmode && fsrc === 'mic');
+    if (xk) xk.hidden = !(phase && !fmode && fsrc === 'kb');
+  }
+  function clearFree() {
+    $('freeInput').value = ''; fsrc = null;
+    setPhase(null); updX();
+  }
   function renderFree() {
     renderOptions(null);
     const mk = (id, svg, label, fn) => {
       const b = document.createElement('button');
       b.className = 'rnd'; b.id = id; b.innerHTML = svg; b.setAttribute('aria-label', label);
-      b.addEventListener('click', fn); return b;
+      b.addEventListener('click', fn);
+      const w = document.createElement('div'); w.className = 'rwrap'; w.appendChild(b);
+      const x = document.createElement('button');
+      x.className = 'xclr'; x.id = id === 'micBtn' ? 'xMic' : 'xKb'; x.innerHTML = X_SVG; x.hidden = true;
+      x.setAttribute('aria-label', 'Xóa nhãn'); x.addEventListener('click', clearFree);
+      w.appendChild(x);
+      return w;
     };
+    fsrc = null;
     $('optLeft').appendChild(mk('micBtn', MIC_SVG, 'Thu âm để nhập nhãn', () => fmode === 'mic' ? stopMic() : startMic()));
-    $('optRight').appendChild(mk('kbBtn', KB_SVG, 'Gõ phím để nhập nhãn', () => freeMode(fmode === 'kb' ? null : 'kb')));
+    $('optRight').appendChild(mk('kbBtn', KB_SVG, 'Gõ phím để nhập nhãn', () => {
+      if (fmode === 'kb') { freeMode(null); return; }
+      fsrc = fmode === 'mic' ? 'mic' : 'kb';
+      freeMode('kb');
+    }));
   }
   function freeMode(m) {
     fmode = m;
@@ -324,8 +349,10 @@
       setTimeout(() => { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 30);
     }
     if (!m) $('freeInput').blur();
+    updX();
   }
   function startMic() {
+    fsrc = 'mic';
     if (!SR) {
       freeMode('kb');
       toast('Máy không hỗ trợ thu âm trên web — bấm micro trên bàn phím để đọc', 3000);
@@ -360,6 +387,7 @@
   }
   function freeDone() {
     const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
+    if (!t) fsrc = null;
     setPhase(t || null);
     freeMode(null);
   }
