@@ -87,7 +87,6 @@
   .free-bar{display:flex;gap:8px;align-items:flex-end;justify-content:center}
   .free-bar textarea{width:190px;min-width:0;min-height:36px;max-height:96px;line-height:20px;resize:none;overflow-y:auto;display:block;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:7px 12px;font-size:16px;font-family:inherit}
   .free-bar button{width:36px;height:36px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
-  .free-bar .ok{border:1.5px solid #4a525c;color:#fff}
   .free-bar .add{border:1.5px solid #4a525c;color:#fff}
   .swrap{position:relative;margin-top:2px}
   .swrap .cat{padding:6px 14px 6px 12px;height:auto;min-height:34px;white-space:pre-line;text-align:left;line-height:1.25}
@@ -174,7 +173,6 @@
   <div class="free-bar" id="freeBar" hidden>
     <label for="freeInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Nhãn in lên ảnh</label>
     <textarea id="freeInput" rows="1" autocomplete="off" enterkeyhint="enter"></textarea>
-    <button class="ok" id="freeDone" aria-label="Dùng nhãn này"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
     <button class="add" id="freeAdd" aria-label="Thêm nhãn vào danh sách"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
   </div>
   <div class="opt-top" id="optTop"></div>
@@ -356,10 +354,12 @@
       b.className = 'rnd'; b.id = id; b.innerHTML = svg; b.setAttribute('aria-label', label);
       b.addEventListener('click', fn);
       const w = document.createElement('div'); w.className = 'rwrap'; w.appendChild(b);
-      const x = document.createElement('button');
-      x.className = 'xclr'; x.id = id === 'micBtn' ? 'xMic' : 'xKb'; x.innerHTML = X_SVG; x.hidden = true;
-      x.setAttribute('aria-label', 'Xóa nhãn'); x.addEventListener('click', clearFree);
-      w.appendChild(x);
+      if (id === 'micBtn') {
+        const x = document.createElement('button');
+        x.className = 'xclr'; x.id = 'xMic'; x.innerHTML = X_SVG; x.hidden = true;
+        x.setAttribute('aria-label', 'Xóa nhãn'); x.addEventListener('click', clearFree);
+        w.appendChild(x);
+      }
       return w;
     };
     fsrc = null;
@@ -433,7 +433,6 @@
     setPhase(t || null);
     freeMode(null); renderSaved();
   }
-  $('freeDone').addEventListener('click', freeDone);
   $('freeAdd').addEventListener('click', () => {
     const t = cleanLabel($('freeInput').value);
     if (t) {
