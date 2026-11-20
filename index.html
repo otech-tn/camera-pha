@@ -84,11 +84,13 @@
   .free-msg{display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:15px;font-weight:700;text-align:center}
   .free-msg .dot{width:10px;height:10px;border-radius:50%;background:#d93a33;flex:none;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.25}}
-  .free-bar{display:flex;gap:8px;align-items:flex-end;justify-content:center}
-  .free-bar textarea{width:190px;min-width:0;min-height:36px;max-height:96px;line-height:20px;resize:none;overflow-y:auto;display:block;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:7px 12px;font-size:16px;font-family:inherit}
+  .free-bar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:end}
+  .free-bar .add{justify-self:start}
+  .free-bar textarea{grid-column:2;width:min(250px, calc(100vw - 120px));min-width:0;min-height:36px;max-height:96px;line-height:20px;resize:none;overflow-y:auto;display:block;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:7px 12px;font-size:16px;font-family:inherit}
   .free-bar button{width:36px;height:36px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
   .free-bar .add{border:1.5px solid #4a525c;color:#fff}
-  .swrap{position:relative;margin-top:2px}
+  .swrap{position:relative;margin-top:2px;max-width:calc(100vw - 40px)}
+  .swrap .cat{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
   .swrap .cat{padding:6px 14px 6px 12px;height:auto;min-height:34px;white-space:pre-line;text-align:left;line-height:1.25}
   .swrap .xclr{width:20px;height:20px;right:-8px;top:-7px}
   .free-msg[hidden],.free-bar[hidden]{display:none}
@@ -332,21 +334,12 @@
       x.addEventListener('click', () => {
         savedLabels = savedLabels.filter(v => v !== t);
         if (fsrc === 'saved' && phase === t) { fsrc = null; setPhase(null); }
-        renderSaved(); updX();
+        renderSaved();
       });
       w.appendChild(b); w.appendChild(x); box.appendChild(w);
     });
   }
   const X_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"></path></svg>';
-  function updX() {
-    const xm = $('xMic'), xk = $('xKb');
-    if (xm) xm.hidden = !(phase && !fmode && fsrc === 'mic');
-    if (xk) xk.hidden = !(phase && !fmode && fsrc === 'kb');
-  }
-  function clearFree() {
-    $('freeInput').value = ''; fsrc = null;
-    setPhase(null); updX();
-  }
   function renderFree() {
     renderOptions(null);
     const mk = (id, svg, label, fn) => {
@@ -354,12 +347,6 @@
       b.className = 'rnd'; b.id = id; b.innerHTML = svg; b.setAttribute('aria-label', label);
       b.addEventListener('click', fn);
       const w = document.createElement('div'); w.className = 'rwrap'; w.appendChild(b);
-      if (id === 'micBtn') {
-        const x = document.createElement('button');
-        x.className = 'xclr'; x.id = 'xMic'; x.innerHTML = X_SVG; x.hidden = true;
-        x.setAttribute('aria-label', 'Xóa nhãn'); x.addEventListener('click', clearFree);
-        w.appendChild(x);
-      }
       return w;
     };
     fsrc = null;
@@ -387,7 +374,6 @@
     }
     if (!m) $('freeInput').blur();
     if (device && device.group === 'khac') renderSaved();
-    updX();
   }
   function startMic() {
     fsrc = 'mic';
