@@ -51,7 +51,7 @@
   .badge{position:absolute;left:64px;top:16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;z-index:2;pointer-events:none}
   .lbl{color:#15703a;font-weight:800;font-size:23px;line-height:1.1;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0px 1px 0 #fff,0px -1px 0 #fff,1px 0px 0 #fff,-1px 0px 0 #fff}
   .lbl[hidden]{display:none}
-  .lbl{max-width:calc(100vw - 140px);overflow-wrap:anywhere}
+  .lbl{max-width:calc(100vw - 140px);overflow-wrap:anywhere;white-space:pre-line}
   .clock{color:#d93a33;font-weight:700;font-size:15px;line-height:1.2;font-variant-numeric:tabular-nums;text-shadow:-0.75px -0.75px 0 #fff,0.75px -0.75px 0 #fff,-0.75px 0.75px 0 #fff,0.75px 0.75px 0 #fff,0px 0.75px 0 #fff,0px -0.75px 0 #fff,0.75px 0px 0 #fff,-0.75px 0px 0 #fff}
   .native-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:14px;text-align:center;padding:24px;color:var(--muted);font-size:15px;line-height:1.45}
@@ -84,13 +84,13 @@
   .free-msg{display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:15px;font-weight:700;text-align:center}
   .free-msg .dot{width:10px;height:10px;border-radius:50%;background:#d93a33;flex:none;animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.25}}
-  .free-bar{display:flex;gap:8px;align-items:center;justify-content:center}
-  .free-bar input{width:190px;min-width:0;height:36px;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:0 12px;font-size:16px;font-family:inherit}
+  .free-bar{display:flex;gap:8px;align-items:flex-end;justify-content:center}
+  .free-bar textarea{width:190px;min-width:0;min-height:36px;max-height:96px;line-height:20px;resize:none;overflow-y:auto;display:block;box-sizing:border-box;border-radius:8px;border:1.5px solid #4a525c;background:#111418;color:#fff;padding:7px 12px;font-size:16px;font-family:inherit}
   .free-bar button{width:36px;height:36px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
   .free-bar .ok{background:#fff;color:#111}
   .free-bar .add{border:1.5px solid #4a525c;color:#fff}
   .swrap{position:relative;margin-top:2px}
-  .swrap .cat{padding:0 14px 0 12px}
+  .swrap .cat{padding:6px 14px 6px 12px;height:auto;min-height:34px;white-space:pre-line;text-align:left;line-height:1.25}
   .swrap .xclr{width:20px;height:20px;right:-8px;top:-7px}
   .free-msg[hidden],.free-bar[hidden]{display:none}
   .saveall{height:44px;border-radius:10px;background:var(--fg);color:#111;font-weight:800;font-size:16px}
@@ -173,7 +173,7 @@
   <div class="free-msg" id="freeMsg" hidden><span class="dot"></span><span id="freeMsgTxt">Đang nghe… nói xong bấm micro để dừng</span></div>
   <div class="free-bar" id="freeBar" hidden>
     <label for="freeInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Nhãn in lên ảnh</label>
-    <input id="freeInput" type="text" autocomplete="off" enterkeyhint="enter">
+    <textarea id="freeInput" rows="1" autocomplete="off" enterkeyhint="enter"></textarea>
     <button class="ok" id="freeDone" aria-label="Dùng nhãn này"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
     <button class="add" id="freeAdd" aria-label="Thêm nhãn vào danh sách"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
   </div>
@@ -382,6 +382,7 @@
     if (kb) kb.classList.toggle('on', m === 'kb');
     if (m === 'kb') {
       const i = $('freeInput');
+      fitInput();
       setTimeout(() => { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 30);
     }
     if (!m) $('freeInput').blur();
@@ -405,7 +406,7 @@
       rec.onresult = e => {
         let t = '';
         for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-        inp.value = t.trim();
+        inp.value = t.trim(); fitInput();
       };
       rec.onerror = e => {
         const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Chưa cho phép dùng micro'
@@ -422,15 +423,19 @@
     if (rec) { try { rec.stop(); } catch (e) { freeMode('kb'); } }   // onend sẽ chuyển sang ô sửa
     else freeMode('kb');
   }
+  // Giữ xuống dòng, gộp khoảng trắng thừa trong từng dòng, bỏ dòng trống
+  function cleanLabel(v) {
+    return String(v || '').split(/\r?\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+  }
   function freeDone() {
-    const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
+    const t = cleanLabel($('freeInput').value);
     if (!t) fsrc = null;
     setPhase(t || null);
     freeMode(null); renderSaved();
   }
   $('freeDone').addEventListener('click', freeDone);
   $('freeAdd').addEventListener('click', () => {
-    const t = $('freeInput').value.replace(/\s+/g, ' ').trim();
+    const t = cleanLabel($('freeInput').value);
     if (t) {
       if (!savedLabels.includes(t)) savedLabels.push(t);
       fsrc = 'saved'; setPhase(t);
@@ -438,7 +443,9 @@
     }
     freeMode(null); renderSaved();
   });
-  $('freeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); freeDone(); } });
+  // Ô nhập nhiều dòng: phím xuống dòng tạo dòng mới, ô tự cao lên theo nội dung
+  function fitInput() { const i = $('freeInput'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight + 3, 96) + 'px'; }
+  $('freeInput').addEventListener('input', fitInput);
 
   setInterval(() => { $('clock').textContent = fmtStamp(new Date()); }, 1000);
   $('clock').textContent = fmtStamp(new Date());
@@ -593,9 +600,12 @@
     const yDate = h - m;
     draw(t2, fD, 700, '#d93a33', yDate);
     if (p) {
+      // Nhãn có thể nhiều dòng: dòng cuối nằm ngay trên ngày giờ, các dòng trước xếp lên trên
+      const lines = String(p).split('\n');
       g.font = `800 ${fL}px ${FONT}`;
-      const fit = Math.max(fD, Math.min(fL, Math.floor(fL * (w - 2 * m) / Math.max(1, g.measureText(p).width))));
-      draw(p, fit, 800, '#15703a', yDate - fD * 1.25);
+      const widest = Math.max(1, ...lines.map(x => g.measureText(x).width));
+      const fit = Math.max(fD, Math.min(fL, Math.floor(fL * (w - 2 * m) / widest)));
+      lines.forEach((x, i) => draw(x, fit, 800, '#15703a', yDate - fD * 1.25 - (lines.length - 1 - i) * fit * 1.15));
     }
     return c;
   }
@@ -603,7 +613,7 @@
   function uniqueName(p, date) {
     // Dạng: ngày-tháng-năm_giâys phút'giờh_nhãn  (dấu / không được phép trong tên file nên thay bằng -)
     const when = `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}_${pad(date.getSeconds())}s${pad(date.getMinutes())}'${pad(date.getHours())}h`;
-    const lab = p ? String(p).normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    const lab = p ? String(p).replace(/\s*\n\s*/g, ' ').normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
     let base = lab ? `${when}_${lab}` : when, name = base + '.jpg', i = 2;
     while (shots.some(s => s.name === name)) name = `${base}_${i++}.jpg`;
     return name;
